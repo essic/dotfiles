@@ -12,7 +12,7 @@
    ;; of a list then all discovered layers will be installed.
    dotspacemacs-configuration-layers
    '(syntax-checking sql python csv html org
-     themes-megapack git dash
+     themes-megapack git dash fsharp
      rust typescript purescript yaml javascript 
      (markdown :variables markdown-live-preview-engine 'vmd)
      (gtags :variables gtags-enable-by-default nil)
@@ -22,6 +22,9 @@
      (haskell :variables haskell-enable-hindent-style "johan-tibell"
                          haskell-completion-backend 'intero)
      (clojure :variables clojure-enable-fancify-symbols t)
+     (shell :variables
+            shell-default-position 'bottom
+            shell-default-height 30)
      )
    ;; A list of packages and/or extensions that will not be install and loadedw.
    dotspacemacs-excluded-packages '(avy firebelly-theme niflheim-theme pastels-on-dark-theme tronesque-theme zonokai-theme)  

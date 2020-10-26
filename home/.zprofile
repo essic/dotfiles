@@ -4,24 +4,28 @@ PATH=$PATH:$HOME/.bin
 export PATH=$PATH:/usr/local/scala-2.11.8/bin
 export PATH=/usr/local/sbt/bin:$PATH
 export PATH=$PATH:/usr/local/play-2.1.1
-export PATH=$PATH:/home/jeremy/.cabal/bin
 export PATH=$PATH:/opt/vagrant/bin
 export PATH=$PATH:/usr/lib/go/bin
 export PATH=/usr/local/haste-compiler/bin:$PATH
-export PATH=/home/jeremy/.multirust/toolchains/stable/cargo/bin:$PATH
 export PATH=/usr/local/clion-2016.2/bin/cmake/bin:$PATH
 export PATH=$PATH:/usr/lib/hadoop/bin
 export PATH=$PATH:/usr/local/hbase/bin
+export PATH=$PATH:$HOME/go/bin
 
 # below was needed to use my local ctags
 export PATH=/usr/local/bin:$PATH
-export PATH=/home/jeremy/.cabal/bin:$PATH
 export PATH=$COCOS_CONSOLE_ROOT:$PATH
 
 # Add environment variable NDK_ROOT for cocos2d-x
 export NDK_ROOT=/usr/local/android-ndk
 export ANDROID_NDK_ROOT=$NDK_ROOT
 export PATH=$NDK_ROOT:$PATH
+
+#Golang homebrew paths
+export GOPATH=$HOME/Go
+export GOROOT=/usr/local/opt/go/libexec
+export PATH=$PATH:$GOPATH/bin
+export PATH=$PATH:$GOROOT/bin
 
 # Add environment variable ANDROID_SDK_ROOT for cocos2d-x
 export ANDROID_SDK_ROOT=/opt/android-sdk
@@ -36,12 +40,13 @@ export COCOS_CONSOLE_ROOT=/usr/local/cocos2d-x-3.8.1/tools/cocos2d-console/bin
 export COCOS_TEMPLATES_ROOT=/usr/local/cocos2d-x-3.8.1/templates
 export PATH=$COCOS_TEMPLATES_ROOT:$PATH
 
+export PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
+
+export MANPATH="/usr/local/opt/coreutils/libexec/gnuman:$MANPATH"
 #Locals
 export PATH=~/.local/bin:$PATH
 
 #Current Haskell
-#export PATH=/home/jeremy/.stack/programs/x86_64-linux/ghc-7.10.3/bin:$PATH
-if [ -e /home/jeremy/.nix-profile/etc/profile.d/nix.sh ]; then . /home/jeremy/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
 
 export URHO3D_HOME=/usr/local/Urho3D-1.5/build
 
@@ -60,7 +65,9 @@ idfile=~/.agentid
 if [ -z $SSH_CLIENT ]
 then
     is_local_client=YES
-    export SSH_ASKPASS="/usr/bin/ksshaskpass"
+    if [[ `uname` == 'Linux' ]]; then
+      export SSH_ASKPASS="/usr/bin/ksshaskpass"
+    fi
 else
     is_local_client=NO
 fi
@@ -97,7 +104,18 @@ source $HOME/.envlocal
 
 export PATH="$HOME/.cargo/bin:$PATH"
 
-. /home/jeremy/.opam/opam-init/init.zsh > /dev/null 2> /dev/null || true
+#. /home/jeremy/.opam/opam-init/init.zsh > /dev/null 2> /dev/null || true
 
 export PATH="$HOME/.bin:$PATH"
 source $HOME/.asdf/asdf.sh
+
+export ERL_AFLAGS="-kernel shell_history enabled"
+
+if [ -f $HOME/.cargo/env ]; then
+  source $HOME/.cargo/env
+fi
+
+# Nix
+if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
+  . '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
+fi

@@ -7,28 +7,40 @@
   (setq-default
    ;; List of additional paths where to look for configuration layers.
    ;; Paths must have a trailing slash (ie. `~/.mycontribs/')
-   dotspacemacs-configuration-layer-path '("~/.emacs.d/private/")
+   dotspacemacs-configuration-layer-path '("~/.spacemacs-private/")
    ;; List of configuration layers to load. If it is the symbol `all' instead
    ;; of a list then all discovered layers will be installed.
    dotspacemacs-configuration-layers
-   '(syntax-checking ocaml sql python pony csv erlang html org
-     themes-megapack git scala dash
+   '(go elm restclient terraform
+     syntax-checking sql python csv erlang html
+     themes-megapack git scala dash clojure
      rust typescript elixir purescript yaml javascript aj-javascript
      (markdown :variables markdown-live-preview-engine 'vmd)
      (gtags :variables gtags-enable-by-default nil)
      (auto-completion :variables
                       auto-completion-enable-company-help-tooltip t
                       auto-completion-enable-snippets-in-popup t)
-     (haskell :variables haskell-enable-hindent-style "chris-done"
+     (haskell :variables haskell-enable-hindent t
+                         haskell-enable-hindent-style "johan-tibell"
                          haskell-completion-backend 'intero)
      (ruby :variables ruby-test-runner 'ruby-test))
    ;; A list of packages and/or extensions that will not be install and loadedw.
    dotspacemacs-excluded-packages '(avy)
-   dotspacemacs-additional-packages '(dtrt-indent)
+   dotspacemacs-additional-packages '(dtrt-indent vue-mode eslint-fix)
    ;; If non-nil spacemacs will delete any orphan packages, i.e. packages that
    ;; are declared in a layer which is not a member of
    ;; the list `dotspacemacs-configuration-layers'
    dotspacemacs-delete-orphan-packages t))
+
+(defun dotspacemacs/user-init ()
+
+
+  (setq configuration-layer-elpa-archives '(("melpa" . "melpa.org/packages/")
+  ("org" . "orgmode.org/elpa/") ("gnu" . "elpa.gnu.org/packages/")))
+  (setq custom-file "~/.spacemacs-custom.el")
+  (load custom-file)
+  (setq evil-respect-visual-line-mode t)
+  )
 
 (defun dotspacemacs/init ()
   "Initialization function.
@@ -36,6 +48,8 @@ This function is called at the very startup of Spacemacs initialization
 before layers configuration."
   ;; This setq-default sexp is an exhaustive list of all the supported
   ;; spacemacs settings.
+
+
   (setq-default
    ;; Specify the startup banner. Default value is `official', it displays
    ;; the official spacemacs logo. An integer value is the index of text
@@ -47,7 +61,7 @@ before layers configuration."
    ;; List of themes, the first of the list is loaded when spacemacs starts.
    ;; Press <SPC> T n to cycle to the next theme in the list (works great
    ;; with 2 themes variants, one dark and one light)
-   dotspacemacs-themes '(
+   dotspacemacs-themes '(spacemacs-dark
                          lush
                          solarized-dark
                          solarized-light
@@ -58,9 +72,9 @@ before layers configuration."
    dotspacemacs-colorize-cursor-according-to-state t
    ;; Default font. `powerline-scale' allows to quickly tweak the mode-line
    ;; size to make separators look not too crappy.
-   dotspacemacs-default-font '("Source Code Pro"
+   dotspacemacs-default-font '("Hasklig"
                                :size 13
-                               :weight normal
+                               :weight medium
                                :width normal
                                :powerline-scale 1.1)
    ;; The leader key
@@ -151,17 +165,21 @@ before layers configuration."
   "Configuration function
  This function is called at the very end of Spacemacs initialization after
 layers configuration."
+
   (evil-escape-mode 1)
   ;;fix clipboard!
   (fset 'evil-visual-update-x-selection 'ignore)
-
   (spacemacs/toggle-indent-guide-globally-on)
 
-  (global-linum-mode)
-  (linum-relative-on)
+  (setq tab-always-indent t)
+
+  (global-linum-mode t)
 
   (add-hook 'shell-mode-hook 'compilation-shell-minor-mode)
   (add-hook 'shell-mode-hook 'ansi-color-for-comint-mode-on)
+
+  (setq spacemacs-default-jump-handlers
+        (remove 'evil-goto-definition spacemacs-default-jump-handlers))
 
   ;; display full buffer path in title window
   (setq frame-title-format
@@ -187,15 +205,21 @@ layers configuration."
         `((".*" . ,temporary-file-directory)))
   (setq undo-tree-auto-save-history t)
 
-  ;; enable dtrt-indent
+  ;; ;; in all source buffers
   (add-hook 'prog-mode-hook #'(lambda ()
+    (message "running prog-mode-hook")
     (dtrt-indent-mode)
-    (dtrt-indent-adapt)))
+    (dtrt-indent-adapt)
+    (spacemacs/toggle-truncate-lines-on)
+    (linum-mode t)
+    (linum-relative-mode)))
 
   ;;don't chdir when opening a file
   (add-hook 'find-file-hook
             (lambda ()
               (setq default-directory command-line-default-directory)))
+
+  ;; Haskell config
   (defun intero-repl-reload-run-main (&optional prompt-options)
     (interactive "P")
     (intero-repl-load)
@@ -215,20 +239,29 @@ layers configuration."
          (concat "main" "\n")))
       (pop-to-buffer repl-buffer)))
 
-  ;; Haskell config
+  (defun my-haskell-run-devel ()
+    "Reloads the current module and then hot-reloads code via DevelMain.update."
+    (interactive)
+    (save-buffer)
+    (intero-devel-reload))
+
+  (evil-leader/set-key-for-mode 'haskell-mode
+    "," 'haskell-navigate-imports-return)
+
   (add-hook 'haskell-mode-hook
     (lambda ()
       (message "running haskell mode hook")
+      (hindent-mode)
       (setq-default evil-shift-width 4)
       (setq haskell-indent-spaces 4)
+      (dtrt-indent-mode nil)
       (setq tab-width 4)
+      (haskell-indent-mode 0)
       (define-key haskell-mode-map [f5] 'intero-repl-load)
-      (define-key haskell-mode-map [f6] 'intero-repl-reload-run-main)
-      (define-key haskell-mode-map [f12] 'haskell-process-reload-devel-main)
+      (define-key haskell-mode-map [f6] 'intero-devel-reload)
       (setq haskell-process-suggest-hoogle-imports t)
       (setq haskell-process-use-presentation-mode t)
       (setq haskell-process-args-stack-ghci '("--ghc-options=-ferror-spans" "--test"))
-      ;; (setq haskell-process-args-stack-ghci '("--ghc-options=-ferror-spans" "--test"))
       (company-mode)
       (let ((checkers '(haskell-ghc haskell-stack-ghc)))
         (if (boundp 'flycheck-disabled-checkers)
@@ -259,10 +292,50 @@ layers configuration."
   (advice-add 'haskell-indentation-newline-and-indent
               :after 'haskell-indentation-advice)
 
+  (defun my-correct-symbol-bounds (pretty-alist)
+    "Prepend a TAB character to each symbol in this alist,
+    this way compose-region called by prettify-symbols-mode
+    will use the correct width of the symbols
+    instead of the width measured by char-width."
+    (mapcar (lambda (el)
+              (setcdr el (string ?\t (cdr el)))
+              el)
+            pretty-alist))
+
+  (defun my-ligature-list (ligatures codepoint-start)
+    "Create an alist of strings to replace with
+     codepoints starting from codepoint-start."
+    (let ((codepoints (-iterate '1+ codepoint-start (length ligatures))))
+      (-zip-pair ligatures codepoints)))
+
+  ; list can be found at https://github.com/i-tu/Hasklig/blob/master/GlyphOrderAndAliasDB#L1588
+  (setq my-hasklig-ligatures
+    (let* ((ligs '("&&" "***" "*>" "\\\\" "||" "|>" "::"
+                   "==" "===" "==>" "=>" "=<<" "!!" ">>"
+                   ">>=" ">>>" ">>-" ">-" "->" "-<" "-<<"
+                   "<*" "<*>" "<|" "<|>" "<$>" "<>" "<-"
+                   "<<" "<<<" "<+>" ".." "..." "++" "+++"
+                   "/=" ":::" ">=>" "->>" "<=>" "<=<" "<->")))
+      (my-correct-symbol-bounds (my-ligature-list ligs #Xe100))))
+
+  ;; nice glyphs for haskell with hasklig
+  (defun my-set-hasklig-ligatures ()
+    "Add hasklig ligatures for use with prettify-symbols-mode."
+    (setq prettify-symbols-alist
+          (append my-hasklig-ligatures prettify-symbols-alist))
+    (prettify-symbols-mode))
+
+  (add-hook 'haskell-mode-hook 'my-set-hasklig-ligatures)
+
+  (add-hook 'purescript-mode-hook
+            (lambda ()
+              (message "running purescript mode hook")
+              (my-set-hasklig-ligatures)
+              (setq purescript-indent-mode nil)
+              ))
+
   ;; Rust config
   (setq-default rust-enable-racer t)
-  (setq racer-cmd "/home/jeremy/.multirust/toolchains/stable/cargo/bin/racer")
-  (setq racer-rust-src-path "/home/jeremy/repos/rust/rust/src")
   (add-hook 'racer-mode-hook #'eldoc-mode)
   (add-hook 'rust-mode-hook
     (lambda ()
@@ -286,22 +359,39 @@ layers configuration."
   ;;Elixir
   (defun mix-dialyzer ()
     (interactive)
+    (save-buffer)
     (alchemist-mix-execute (list "dialyzer") nil))
   (evil-leader/set-key-for-mode 'elixir-mode
     "md" 'mix-dialyzer)
+  (defun mix-format()
+    (interactive)
+    (save-buffer)
+    (alchemist-mix-execute (list "format") nil))
+  (evil-leader/set-key-for-mode 'elixir-mode
+    "mf" 'mix-format)
 
+  (add-to-list 'spacemacs-indent-sensitive-modes 'elixir-mode)
   (setq alchemist-mix-command "~/.asdf/shims/mix")
+  (setq alchemist-mix-env "dev")
   (setq alchemist-iex-program-name "~/.asdf/shims/iex")
   (setq alchemist-execute-command "~/.asdf/shims/elixir")
   (setq alchemist-compile-command "~/.asdf/shims/elixirc")
   (setq flycheck-elixir-credo-executable "~/.asdf/shims/mix")
+
+  (defun mix-format-on-save ()
+    (when (eq major-mode 'elixir-mode)
+      (elixir-format)))
+
+  ;;(add-hook 'after-save-hook #'mix-format-on-save)
 
   (add-hook 'elixir-mode-hook
     (lambda ()
       (message "running elixir hook")
       ;;(spacemacs//elixir-enable-compilation-checking)
       (flycheck-mix-setup)
-      (setenv "NO_WALLABY" "true")
+      (setenv "IN_EDITOR" "true")
+      (setenv "MIX_ENV" "test")
+      (setenv "VERBOSE" "false")
 
       (define-key elixir-mode-map [f4] (lambda ()
                                          (interactive)
@@ -312,7 +402,7 @@ layers configuration."
         (interactive)
         (save-buffer)
         (f-touch (shell-quote-argument (buffer-file-name)))
-        (alchemist-iex-reload-module)))
+        (alchemist-iex-compile-this-buffer-and-go)))
 
       (define-key elixir-mode-map [f6] (lambda ()
         (interactive)
@@ -337,7 +427,8 @@ layers configuration."
   (add-hook 'markdown-mode-hook
     (lambda ()
       (message "running markdown mode hook")
-      (spacemacs/toggle-visual-line-navigation)))
+      (visual-line-mode)
+      ))
 
   ;;Scala
   (if (file-readable-p "./scalastyle-config.xml")
@@ -347,10 +438,27 @@ layers configuration."
   (setq-default ensime-startup-notification nil)
 
   ;;javascript
-  (add-to-list 'auto-mode-alist '("\\.vue\\'" . rjsx-mode))
-  ;;use react-mode for all js
-  (add-to-list 'auto-mode-alist '("\\.vue\\'" . rjsx-mode))
-  ;; (spacemacs/helm-gtags-define-keys-for-mode 'react-mode)
+
+  (eval-after-load 'vue-mode
+    '(add-hook 'vue-mode-hook (lambda () (add-hook 'after-save-hook 'eslint-fix nil t))))
+
+  (eval-after-load 'js2-mode
+    '(add-hook 'js2-mode-hook (lambda () (add-hook 'after-save-hook 'eslint-fix nil t))))
+
+  (eval-after-load 'rjsx-mode
+    '(add-hook 'rjsx-mode-hook (lambda () (add-hook 'after-save-hook 'eslint-fix nil t))))
+
+  (add-to-list 'auto-mode-alist '("\\.js\\'" . js2-mode))
+  (add-to-list 'auto-mode-alist '("\\.vue\\'" . vue-mode))
+
+  (add-hook 'vue-mode-hook
+            (lambda ()
+              (message "running vue hook")
+              (flycheck-add-mode 'javascript-eslint 'vue-html-mode)
+              (electric-indent-local-mode)
+              (dtrt-indent-mode)
+              (flycheck-mode)
+              ))
 
   ;; somehow this is breaking rjsx mode
   ;; (my-personal-code-style)
@@ -359,6 +467,15 @@ layers configuration."
   ;; (add-hook 'react-mode-hook 'my-personal-code-style)
   ;; (add-hook 'sh-mode-hook 'my-personal-code-style)
 
+  (defun copy-file-name-to-clipboard ()
+    "Copy the current buffer file name to the clipboard."
+    (interactive)
+    (let ((filename (if (equal major-mode 'dired-mode)
+                        default-directory
+                      (buffer-file-name))))
+      (when filename
+        (kill-new filename)
+        (message "Copied buffer file name '%s' to the clipboard." filename))))
 
   ;;Typescript
   (if (file-readable-p "node_modules/typescript/bin/tsserver")
@@ -375,107 +492,18 @@ layers configuration."
                                                  (shell-command "ponyc && ./out")))
    ))
 
+  ;; Purescript
+  (setq psc-ide-use-npm-bin t)
+  (defun my/append-char ()
+    (interactive)
+    (save-excursion
+      (unless (eolp)
+        (forward-char))
+      (insert-char #x2200)))
+
+  (evil-leader/set-key-for-mode 'purescript-mode
+    "a" 'my/append-char)
+
+
 ;;  (setq debug-on-error t)
-)
-
-;;'(flycheck-disabled-checkers (quote (elixir-credo)))
-
-;; Do not write anything past this comment. This is where Emacs will
-;; auto-generate custom variable definitions.
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(ahs-case-fold-search nil t)
- '(ahs-default-range (quote ahs-range-whole-buffer) t)
- '(ahs-idle-interval 0.25 t)
- '(ahs-idle-timer 0 t)
- '(ahs-inhibit-face-list nil t)
- '(auto-save-default nil)
- '(custom-safe-themes
-   (quote
-    ("0820d191ae80dcadc1802b3499f84c07a09803f2cb90b343678bdb03d225b26b" default)))
- '(ensime-sem-high-enabled-p nil)
- '(ensime-typecheck-idle-interval 1.5)
- '(exec-path-from-shell-arguments (quote ("-l")))
- '(flycheck-check-syntax-automatically (quote (save idle-change mode-enabled)))
- '(haskell-hoogle-command "stack hoogle --")
- '(package-selected-packages
-   (quote
-    (org-projectile org-category-capture org-present org-pomodoro alert log4e gntp org-download htmlize parent-mode gnuplot gitignore-mode pos-tip flx goto-chg dtrt-indent dash-at-point dash-functional pkg-info epl popup web-completion-data json-snatcher json-reformat rjsx-mode prettier-js eslintd-fix helm-gtags ggtags ghc dash json-mode diminish winum madhat2r-theme fuzzy csv-mode flycheck-pony ponylang-mode vmd-mode powerline pcre2el spinner org multiple-cursors hydra projectile request haml-mode seq iedit anzu sbt-mode scala-mode autothemer tern rust-mode bind-key yasnippet elixir-mode avy auto-complete inf-ruby company highlight smartparens bind-map evil undo-tree flycheck haskell-mode helm helm-core js2-mode magit magit-popup git-commit with-editor async purescript-mode f s flycheck-credo yapfify pyvenv pytest pyenv-mode py-isort pip-requirements live-py-mode hy-mode helm-pydoc cython-mode company-anaconda anaconda-mode pythonic sql-indent markdown-toc mmm-mode markdown-mode gh-md yaml-mode uuidgen toc-org tide typescript-mode rake pug-mode org-plus-contrib org-bullets ob-elixir minitest livid-mode skewer-mode simple-httpd link-hint intero hlint-refactor hide-comnt helm-hoogle git-link flycheck-mix eyebrowse evil-visual-mark-mode evil-unimpaired evil-ediff dumb-jump darkokai-theme company-ghci column-enforce-mode cargo zeal-at-point helm-dash zonokai-theme zenburn-theme zen-and-art-theme ws-butler window-numbering which-key web-mode web-beautify volatile-highlights vi-tilde-fringe use-package underwater-theme ujelly-theme twilight-theme twilight-bright-theme twilight-anti-bright-theme tss tronesque-theme toxi-theme toml-mode tao-theme tangotango-theme tango-plus-theme tango-2-theme tagedit sunny-day-theme sublime-themes subatomic256-theme subatomic-theme stekene-theme spacemacs-theme spaceline spacegray-theme soothe-theme solarized-theme soft-stone-theme soft-morning-theme soft-charcoal-theme smyx-theme smooth-scrolling smeargle slim-mode shm seti-theme scss-mode sass-mode rvm ruby-tools ruby-test-mode ruby-end rubocop rspec-mode robe reverse-theme restart-emacs rbenv rainbow-delimiters railscasts-theme racer quelpa purple-haze-theme psci psc-ide professional-theme popwin planet-theme phoenix-dark-pink-theme phoenix-dark-mono-theme persp-mode pastels-on-dark-theme paradox page-break-lines orgit organic-green-theme open-junk-file omtose-phellack-theme oldlace-theme occidental-theme obsidian-theme noflet noctilux-theme niflheim-theme neotree naquadah-theme mustang-theme move-text monokai-theme monochrome-theme molokai-theme moe-theme minimal-theme material-theme majapahit-theme magit-gitflow lush-theme lorem-ipsum linum-relative light-soap-theme leuven-theme less-css-mode js2-refactor js-doc jbeans-theme jazz-theme jade-mode ir-black-theme inkpot-theme info+ indent-guide ido-vertical-mode hungry-delete hl-todo hindent highlight-parentheses highlight-numbers highlight-indentation heroku-theme hemisu-theme help-fns+ helm-themes helm-swoop helm-projectile helm-mode-manager helm-make helm-gitignore helm-flx helm-descbinds helm-css-scss helm-company helm-c-yasnippet helm-ag hc-zenburn-theme haskell-snippets gruvbox-theme gruber-darker-theme grandshell-theme gotham-theme google-translate golden-ratio gitconfig-mode gitattributes-mode git-timemachine git-messenger gandalf-theme flycheck-rust flycheck-pos-tip flycheck-haskell flx-ido flatui-theme flatland-theme firebelly-theme fill-column-indicator farmhouse-theme fancy-battery expand-region exec-path-from-shell evil-visualstar evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-magit evil-lisp-state evil-indent-plus evil-iedit-state evil-exchange evil-escape evil-args evil-anzu eval-sexp-fu espresso-theme ensime emmet-mode dracula-theme django-theme define-word darktooth-theme darkmine-theme darkburn-theme dakrone-theme cyberpunk-theme company-web company-tern company-statistics company-racer company-quickhelp company-ghc company-cabal colorsarenice-theme color-theme-sanityinc-tomorrow color-theme-sanityinc-solarized coffee-mode cmm-mode clues-theme clean-aindent-mode chruby cherry-blossom-theme busybee-theme bundler buffer-move bubbleberry-theme bracketed-paste birds-of-paradise-plus-theme badwolf-theme auto-yasnippet auto-highlight-symbol apropospriate-theme anti-zenburn-theme ample-zen-theme ample-theme alect-themes alchemist aggressive-indent afternoon-theme adaptive-wrap ace-window ace-link ace-jump-helm-line ac-ispell)))
- '(ring-bell-function (quote ignore))
- '(truncate-lines t)
- '(typescript-indent-level 2))
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- )
-(defun dotspacemacs/emacs-custom-settings ()
-  "Emacs custom settings.
-This is an auto-generated function, do not modify its content directly, use
-Emacs customize menu instead.
-This function is called at the very end of Spacemacs initialization."
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(ahs-case-fold-search nil t)
- '(ahs-default-range (quote ahs-range-whole-buffer) t)
- '(ahs-idle-interval 0.25 t)
- '(ahs-idle-timer 0 t)
- '(ahs-inhibit-face-list nil t)
- '(auto-save-default nil)
- '(custom-safe-themes
-   (quote
-    ("0820d191ae80dcadc1802b3499f84c07a09803f2cb90b343678bdb03d225b26b" default)))
- '(ensime-sem-high-enabled-p nil)
- '(ensime-typecheck-idle-interval 1.5)
- '(exec-path-from-shell-arguments (quote ("-l")))
- '(flycheck-check-syntax-automatically (quote (save idle-change mode-enabled)))
- '(haskell-hoogle-command "stack hoogle --")
- '(package-selected-packages
-   (quote
-    (flycheck-ocaml utop tuareg caml ocp-indent merlin org-projectile org-category-capture org-present org-pomodoro alert log4e gntp org-download htmlize parent-mode gnuplot gitignore-mode pos-tip flx goto-chg dtrt-indent dash-at-point dash-functional pkg-info epl popup web-completion-data json-snatcher json-reformat rjsx-mode prettier-js eslintd-fix helm-gtags ggtags ghc dash json-mode diminish winum madhat2r-theme fuzzy csv-mode flycheck-pony ponylang-mode vmd-mode powerline pcre2el spinner org multiple-cursors hydra projectile request haml-mode seq iedit anzu sbt-mode scala-mode autothemer tern rust-mode bind-key yasnippet elixir-mode avy auto-complete inf-ruby company highlight smartparens bind-map evil undo-tree flycheck haskell-mode helm helm-core js2-mode magit magit-popup git-commit with-editor async purescript-mode f s flycheck-credo yapfify pyvenv pytest pyenv-mode py-isort pip-requirements live-py-mode hy-mode helm-pydoc cython-mode company-anaconda anaconda-mode pythonic sql-indent markdown-toc mmm-mode markdown-mode gh-md yaml-mode uuidgen toc-org tide typescript-mode rake pug-mode org-plus-contrib org-bullets ob-elixir minitest livid-mode skewer-mode simple-httpd link-hint intero hlint-refactor hide-comnt helm-hoogle git-link flycheck-mix eyebrowse evil-visual-mark-mode evil-unimpaired evil-ediff dumb-jump darkokai-theme company-ghci column-enforce-mode cargo zeal-at-point helm-dash zonokai-theme zenburn-theme zen-and-art-theme ws-butler window-numbering which-key web-mode web-beautify volatile-highlights vi-tilde-fringe use-package underwater-theme ujelly-theme twilight-theme twilight-bright-theme twilight-anti-bright-theme tss tronesque-theme toxi-theme toml-mode tao-theme tangotango-theme tango-plus-theme tango-2-theme tagedit sunny-day-theme sublime-themes subatomic256-theme subatomic-theme stekene-theme spacemacs-theme spaceline spacegray-theme soothe-theme solarized-theme soft-stone-theme soft-morning-theme soft-charcoal-theme smyx-theme smooth-scrolling smeargle slim-mode shm seti-theme scss-mode sass-mode rvm ruby-tools ruby-test-mode ruby-end rubocop rspec-mode robe reverse-theme restart-emacs rbenv rainbow-delimiters railscasts-theme racer quelpa purple-haze-theme psci psc-ide professional-theme popwin planet-theme phoenix-dark-pink-theme phoenix-dark-mono-theme persp-mode pastels-on-dark-theme paradox page-break-lines orgit organic-green-theme open-junk-file omtose-phellack-theme oldlace-theme occidental-theme obsidian-theme noflet noctilux-theme niflheim-theme neotree naquadah-theme mustang-theme move-text monokai-theme monochrome-theme molokai-theme moe-theme minimal-theme material-theme majapahit-theme magit-gitflow lush-theme lorem-ipsum linum-relative light-soap-theme leuven-theme less-css-mode js2-refactor js-doc jbeans-theme jazz-theme jade-mode ir-black-theme inkpot-theme info+ indent-guide ido-vertical-mode hungry-delete hl-todo hindent highlight-parentheses highlight-numbers highlight-indentation heroku-theme hemisu-theme help-fns+ helm-themes helm-swoop helm-projectile helm-mode-manager helm-make helm-gitignore helm-flx helm-descbinds helm-css-scss helm-company helm-c-yasnippet helm-ag hc-zenburn-theme haskell-snippets gruvbox-theme gruber-darker-theme grandshell-theme gotham-theme google-translate golden-ratio gitconfig-mode gitattributes-mode git-timemachine git-messenger gandalf-theme flycheck-rust flycheck-pos-tip flycheck-haskell flx-ido flatui-theme flatland-theme firebelly-theme fill-column-indicator farmhouse-theme fancy-battery expand-region exec-path-from-shell evil-visualstar evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-magit evil-lisp-state evil-indent-plus evil-iedit-state evil-exchange evil-escape evil-args evil-anzu eval-sexp-fu espresso-theme ensime emmet-mode dracula-theme django-theme define-word darktooth-theme darkmine-theme darkburn-theme dakrone-theme cyberpunk-theme company-web company-tern company-statistics company-racer company-quickhelp company-ghc company-cabal colorsarenice-theme color-theme-sanityinc-tomorrow color-theme-sanityinc-solarized coffee-mode cmm-mode clues-theme clean-aindent-mode chruby cherry-blossom-theme busybee-theme bundler buffer-move bubbleberry-theme bracketed-paste birds-of-paradise-plus-theme badwolf-theme auto-yasnippet auto-highlight-symbol apropospriate-theme anti-zenburn-theme ample-zen-theme ample-theme alect-themes alchemist aggressive-indent afternoon-theme adaptive-wrap ace-window ace-link ace-jump-helm-line ac-ispell)))
- '(paradox-github-token t)
- '(ring-bell-function (quote ignore))
- '(safe-local-variable-values
-   (quote
-    ((eval progn
-           (add-to-list
-            (quote exec-path)
-            (concat
-             (locate-dominating-file default-directory ".dir-locals.el")
-             "node_modules/.bin/")))
-     (elixir-mode
-      (elixir-enable-compilation-checking . t))
-     (eval progn
-           (add-to-list
-            (quote exec-path)
-            (concat
-             (locate-dominating-file default-directory ".dir-locals.el")
-             "assets/node_modules/.bin/"))
-           (add-to-list
-            (quote exec-path)
-            "/home/jeremy/.asdf/shims"))
-     (eval progn
-           (add-to-list
-            (quote exec-path)
-            (concat
-             (locate-dominating-file default-directory ".dir-locals.el")
-             "assets/node_modules/.bin/")))
-     (elixir-enable-compilation-checking . t)
-     (elixir-enable-compilation-checking))))
- '(standard-indent 2)
- '(truncate-lines t)
- '(typescript-indent-level 2))
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(default ((t (:foreground "#E0E0E0" :background "#202020")))))
 )
